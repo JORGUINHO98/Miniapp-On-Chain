@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { ethers } from 'ethers';
 import { API_URL, CONTRACT_ADDRESS } from '../config';
 import contractABI from '../abi.json';
+import { formatearWallet, validarDescripcion, contadorCaracteres } from '../utils/helpers';
+import { Alert } from './Alert';
+import { LoadingSpinner } from './LoadingSpinner';
 
 function CrearServicio({ onServicioCreado }) {
   const [descripcion, setDescripcion] = useState('');
@@ -10,6 +13,12 @@ function CrearServicio({ onServicioCreado }) {
   const [signer, setSigner] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+
+  const mostrarMensaje = (mensaje, tipo = 'info') => {
+    setMessage(mensaje);
+    setMessageType(tipo);
+  };
 
   const conectarWallet = async () => {
     try {
@@ -21,40 +30,52 @@ function CrearServicio({ onServicioCreado }) {
         setWallet(address);
         setProvider(ethProvider);
         setSigner(ethSigner);
-        setMessage('✅ Wallet conectada exitosamente');
+        mostrarMensaje('✅ Wallet conectada exitosamente', 'success');
       } else {
-        setMessage('❌ Por favor instala MetaMask');
+        mostrarMensaje('❌ Por favor instala MetaMask', 'error');
       }
     } catch (error) {
       console.error('Error al conectar wallet:', error);
-      setMessage('❌ Error al conectar wallet: ' + error.message);
+      mostrarMensaje('❌ Error al conectar wallet: ' + error.message, 'error');
     }
+  };
+
+  const validarFormulario = () => {
+    if (!wallet || !signer) {
+      mostrarMensaje('⚠️ Por favor conecta tu wallet primero', 'warning');
+      return false;
+    }
+
+    if (!descripcion.trim()) {
+      mostrarMensaje('⚠️ Por favor ingresa una descripción', 'warning');
+      return false;
+    }
+
+    if (!validarDescripcion(descripcion)) {
+      mostrarMensaje('⚠️ La descripción debe tener entre 10 y 500 caracteres', 'warning');
+      return false;
+    }
+
+    if (!CONTRACT_ADDRESS) {
+      mostrarMensaje('❌ Error: Dirección del contrato no configurada', 'error');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!wallet || !signer) {
-      setMessage('⚠️ Por favor conecta tu wallet primero');
-      return;
-    }
-
-    if (!descripcion.trim()) {
-      setMessage('⚠️ Por favor ingresa una descripción');
-      return;
-    }
-
-    if (!CONTRACT_ADDRESS) {
-      setMessage('❌ Error: Dirección del contrato no configurada');
-      return;
-    }
+    
+    if (!validarFormulario()) return;
 
     setLoading(true);
-    setMessage('');
+    mostrarMensaje('⏳ Creando servicio...', 'info');
 
     try {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, signer);
       const tx = await contract.crearServicio(descripcion);
-      setMessage('⏳ Transacción enviada, esperando confirmación...');
+      mostrarMensaje('⏳ Transacción enviada, esperando confirmación...', 'info');
       
       const receipt = await tx.wait();
       
@@ -75,7 +96,10 @@ function CrearServicio({ onServicioCreado }) {
         }
       }
       
-      setMessage(`✅ Servicio creado exitosamente! ${servicioId ? `ID: ${servicioId}` : ''} TX: ${tx.hash.substring(0, 10)}...`);
+      mostrarMensaje(
+        `✅ Servicio creado exitosamente! ${servicioId ? `ID: ${servicioId}` : ''} TX: ${tx.hash.substring(0, 10)}...`, 
+        'success'
+      );
       setDescripcion('');
       
       if (onServicioCreado) {
@@ -83,11 +107,13 @@ function CrearServicio({ onServicioCreado }) {
       }
     } catch (error) {
       console.error('Error al crear servicio:', error);
-      setMessage('❌ Error: ' + (error.reason || error.message));
+      mostrarMensaje('❌ Error: ' + (error.reason || error.message), 'error');
     } finally {
       setLoading(false);
     }
   };
+
+  const descripcionValida = validarDescripcion(descripcion);
 
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/20 hover:border-white/40 transition-all duration-300">
@@ -114,7 +140,9 @@ function CrearServicio({ onServicioCreado }) {
       {wallet && (
         <div className="mb-6 p-4 bg-gradient-to-r from-green-400/20 to-emerald-400/20 backdrop-blur-sm border border-green-400/30 rounded-xl">
           <p className="text-sm text-green-200 font-medium mb-1">✅ Wallet conectada:</p>
-          <p className="text-sm font-mono text-green-300 break-all bg-black/20 p-2 rounded">{wallet}</p>
+          <p className="text-sm font-mono text-green-300 break-all bg-black/20 p-2 rounded">
+            {formatearWallet(wallet)}
+          </p>
         </div>
       )}
 
@@ -127,15 +155,29 @@ function CrearServicio({ onServicioCreado }) {
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             required
+            minLength="10"
+            maxLength="500"
             rows={4}
-            className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all resize-none"
-            placeholder="Describe el servicio que deseas crear..."
+            className={`w-full px-4 py-3 bg-white/10 backdrop-blur-sm border rounded-xl text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all resize-none ${
+              descripcion && !descripcionValida 
+                ? 'border-red-400/50' 
+                : 'border-white/20'
+            }`}
+            placeholder="Describe detalladamente el servicio que deseas crear (mínimo 10 caracteres)..."
           />
+          <div className={`text-xs mt-1 ${
+            descripcion && !descripcionValida ? 'text-red-300' : 'text-purple-300'
+          }`}>
+            {contadorCaracteres(descripcion, 500)}
+            {descripcion && !descripcionValida && (
+              <span className="block">⚠️ Mínimo 10 caracteres requeridos</span>
+            )}
+          </div>
         </div>
 
         <button
           type="submit"
-          disabled={loading || !wallet}
+          disabled={loading || !wallet || !descripcionValida}
           className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-xl disabled:opacity-50"
         >
           {loading ? '⏳ Creando...' : '✨ Crear Servicio'}
@@ -143,13 +185,11 @@ function CrearServicio({ onServicioCreado }) {
       </form>
 
       {message && (
-        <div className={`mt-6 p-4 rounded-xl backdrop-blur-sm border ${
-          message.includes('Error') || message.includes('Por favor') || message.includes('❌') || message.includes('⚠️')
-            ? 'bg-red-500/20 text-red-200 border-red-400/30'
-            : 'bg-green-500/20 text-green-200 border-green-400/30'
-        }`}>
-          <p className="text-sm font-medium">{message}</p>
-        </div>
+        <Alert 
+          tipo={messageType} 
+          mensaje={message} 
+          onClose={() => setMessage('')}
+        />
       )}
     </div>
   );

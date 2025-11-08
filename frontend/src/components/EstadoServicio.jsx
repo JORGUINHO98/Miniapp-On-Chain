@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { API_URL } from '../config';
+import { formatearWallet, formatearFecha } from '../utils/helpers';
+import { Alert } from './Alert';
+import { LoadingSpinner } from './LoadingSpinner';
 
 function EstadoServicio({ onEstadoActualizado }) {
   const [servicioId, setServicioId] = useState('');
   const [nuevoEstado, setNuevoEstado] = useState('0');
   const [loading, setLoading] = useState(false);
+  const [loadingServicio, setLoadingServicio] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
   const [servicioInfo, setServicioInfo] = useState(null);
 
   const estados = [
@@ -15,28 +20,43 @@ function EstadoServicio({ onEstadoActualizado }) {
     { value: '3', label: 'Cancelado', icon: '❌' },
   ];
 
+  const mostrarMensaje = (mensaje, tipo = 'info') => {
+    setMessage(mensaje);
+    setMessageType(tipo);
+  };
+
   // 🔍 Cargar un servicio específico por ID
   const cargarServicio = async () => {
     if (!servicioId) {
-      setMessage('⚠️ Por favor ingresa un ID de servicio');
+      mostrarMensaje('⚠️ Por favor ingresa un ID de servicio', 'warning');
       return;
     }
+
+    if (isNaN(servicioId) || servicioId < 0) {
+      mostrarMensaje('⚠️ Por favor ingresa un ID válido (número positivo)', 'warning');
+      return;
+    }
+
+    setLoadingServicio(true);
+    mostrarMensaje('🔍 Buscando servicio...', 'info');
 
     try {
       const response = await fetch(`${API_URL}/api/servicio/${servicioId}`);
       const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         setServicioInfo(data.servicio);
-        setMessage('');
+        mostrarMensaje('✅ Servicio encontrado', 'success');
       } else {
-        setMessage('❌ Error al cargar servicio: ' + (data.message || data.error));
         setServicioInfo(null);
+        mostrarMensaje('❌ Servicio no encontrado: ' + (data.message || data.error), 'error');
       }
     } catch (error) {
       console.error('Error al cargar servicio:', error);
-      setMessage('❌ Error al cargar servicio: ' + error.message);
       setServicioInfo(null);
+      mostrarMensaje('❌ Error al cargar servicio: ' + error.message, 'error');
+    } finally {
+      setLoadingServicio(false);
     }
   };
 
@@ -44,12 +64,17 @@ function EstadoServicio({ onEstadoActualizado }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!servicioId) {
-      setMessage('⚠️ Por favor ingresa un ID de servicio');
+      mostrarMensaje('⚠️ Por favor ingresa un ID de servicio', 'warning');
+      return;
+    }
+
+    if (!servicioInfo) {
+      mostrarMensaje('⚠️ Por favor busca y verifica el servicio primero', 'warning');
       return;
     }
 
     setLoading(true);
-    setMessage('');
+    mostrarMensaje('⏳ Actualizando estado...', 'info');
 
     try {
       const response = await fetch(`${API_URL}/api/actualizar-estado`, {
@@ -64,15 +89,16 @@ function EstadoServicio({ onEstadoActualizado }) {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('✅ Estado actualizado exitosamente!');
+        mostrarMensaje('✅ Estado actualizado exitosamente!', 'success');
         if (onEstadoActualizado) onEstadoActualizado(data);
-        cargarServicio();
+        // Recargar la información del servicio
+        await cargarServicio();
       } else {
-        setMessage('❌ Error: ' + (data.message || data.error));
+        mostrarMensaje('❌ Error: ' + (data.message || data.error), 'error');
       }
     } catch (error) {
       console.error('Error al actualizar estado:', error);
-      setMessage('❌ Error al actualizar estado: ' + error.message);
+      mostrarMensaje('❌ Error al actualizar estado: ' + error.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -87,6 +113,16 @@ function EstadoServicio({ onEstadoActualizado }) {
       'Cancelado': 'bg-gradient-to-r from-red-400 to-pink-500',
     };
     return colores[estado] || 'bg-gray-400';
+  };
+
+  const getEstadoIcon = (estado) => {
+    const iconos = {
+      'Pendiente': '⏳',
+      'EnProceso': '⚙️',
+      'Completado': '✅',
+      'Cancelado': '❌',
+    };
+    return iconos[estado] || '❓';
   };
 
   return (
@@ -113,38 +149,49 @@ function EstadoServicio({ onEstadoActualizado }) {
             type="number"
             value={servicioId}
             onChange={(e) => setServicioId(e.target.value)}
+            min="0"
             className="flex-1 px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
-            placeholder="Ingresa el ID del servicio"
+            placeholder="Ingresa el ID del servicio (ej: 1, 2, 3...)"
           />
           <button
             onClick={cargarServicio}
-            className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-500 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            disabled={loadingServicio || !servicioId}
+            className="bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-500 hover:to-blue-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-xl disabled:opacity-50"
           >
-            🔍 Buscar
+            {loadingServicio ? '🔍...' : '🔍 Buscar'}
           </button>
         </div>
       </div>
 
       {/* 📋 Información del servicio */}
+      {loadingServicio && <LoadingSpinner mensaje="Cargando información del servicio..." />}
+
       {servicioInfo && (
         <div className="mb-6 p-6 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm border border-white/20 rounded-xl">
           <h3 className="font-bold text-purple-200 mb-4 text-lg">📋 Información del Servicio</h3>
           <div className="space-y-3">
+            <p className="text-sm text-purple-100">
+              <span className="font-semibold text-purple-200">ID:</span> #{servicioInfo.id}
+            </p>
             <p className="text-sm text-purple-100">
               <span className="font-semibold text-purple-200">Descripción:</span> {servicioInfo.descripcion}
             </p>
             <p className="text-sm text-purple-100">
               <span className="font-semibold text-purple-200">Creador:</span>{' '}
               <span className="font-mono text-purple-300 bg-black/20 px-2 py-1 rounded">
-                {servicioInfo.creador}
+                {formatearWallet(servicioInfo.creador)}
               </span>
+            </p>
+            <p className="text-sm text-purple-100">
+              <span className="font-semibold text-purple-200">Fecha de creación:</span>{' '}
+              {formatearFecha(servicioInfo.fechaCreacion)}
             </p>
             <div className="flex items-center gap-2">
               <span className="font-semibold text-purple-200">Estado actual:</span>
               <span
                 className={`px-4 py-2 rounded-full text-xs font-bold text-white shadow-lg ${getEstadoColor(servicioInfo.estado)}`}
               >
-                {servicioInfo.estado}
+                {getEstadoIcon(servicioInfo.estado)} {servicioInfo.estado}
               </span>
             </div>
           </div>
@@ -152,45 +199,43 @@ function EstadoServicio({ onEstadoActualizado }) {
       )}
 
       {/* 📝 Formulario de actualización */}
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label className="block text-sm font-semibold text-purple-200 mb-2">
-            Nuevo Estado
-          </label>
-          <select
-            value={nuevoEstado}
-            onChange={(e) => setNuevoEstado(e.target.value)}
-            required
-            className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
-          >
-            {estados.map((estado) => (
-              <option key={estado.value} value={estado.value} className="bg-purple-900">
-                {estado.icon} {estado.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      {servicioInfo && (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-sm font-semibold text-purple-200 mb-2">
+              Nuevo Estado
+            </label>
+            <select
+              value={nuevoEstado}
+              onChange={(e) => setNuevoEstado(e.target.value)}
+              required
+              className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+            >
+              {estados.map((estado) => (
+                <option key={estado.value} value={estado.value} className="bg-purple-900">
+                  {estado.icon} {estado.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <button
-          type="submit"
-          disabled={loading || !servicioId}
-          className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-xl disabled:opacity-50"
-        >
-          {loading ? '⏳ Actualizando...' : '✨ Actualizar Estado'}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={loading || !servicioId}
+            className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 disabled:transform-none shadow-lg hover:shadow-xl disabled:opacity-50"
+          >
+            {loading ? '⏳ Actualizando...' : '✨ Actualizar Estado'}
+          </button>
+        </form>
+      )}
 
       {/* 📢 Mensajes */}
       {message && (
-        <div
-          className={`mt-6 p-4 rounded-xl backdrop-blur-sm border ${
-            message.includes('Error') || message.includes('Por favor') || message.includes('❌') || message.includes('⚠️')
-              ? 'bg-red-500/20 text-red-200 border-red-400/30'
-              : 'bg-green-500/20 text-green-200 border-green-400/30'
-          }`}
-        >
-          <p className="text-sm font-medium">{message}</p>
-        </div>
+        <Alert 
+          tipo={messageType} 
+          mensaje={message} 
+          onClose={() => setMessage('')}
+        />
       )}
     </div>
   );

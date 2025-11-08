@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { ethers } from 'ethers';
 import { API_URL, CONTRACT_ADDRESS } from '../config';
 import contractABI from '../abi.json';
+import { formatearWallet, validarEmail } from '../utils/helpers';
+import { Alert } from './Alert';
+import { LoadingSpinner } from './LoadingSpinner';
 
 function RegistroUsuario({ onUsuarioRegistrado }) {
   const [nombre, setNombre] = useState('');
@@ -11,6 +14,12 @@ function RegistroUsuario({ onUsuarioRegistrado }) {
   const [signer, setSigner] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+
+  const mostrarMensaje = (mensaje, tipo = 'info') => {
+    setMessage(mensaje);
+    setMessageType(tipo);
+  };
 
   const conectarWallet = async () => {
     try {
@@ -22,39 +31,61 @@ function RegistroUsuario({ onUsuarioRegistrado }) {
         setWallet(address);
         setProvider(ethProvider);
         setSigner(ethSigner);
-        setMessage('✅ Wallet conectada exitosamente');
+        mostrarMensaje('✅ Wallet conectada exitosamente', 'success');
       } else {
-        setMessage('❌ Por favor instala MetaMask');
+        mostrarMensaje('❌ Por favor instala MetaMask', 'error');
       }
     } catch (error) {
       console.error('Error al conectar wallet:', error);
-      setMessage('❌ Error al conectar wallet: ' + error.message);
+      mostrarMensaje('❌ Error al conectar wallet: ' + error.message, 'error');
     }
+  };
+
+  const validarFormulario = () => {
+    if (!wallet || !signer) {
+      mostrarMensaje('⚠️ Por favor conecta tu wallet primero', 'warning');
+      return false;
+    }
+
+    if (!nombre.trim()) {
+      mostrarMensaje('⚠️ Por favor ingresa tu nombre', 'warning');
+      return false;
+    }
+
+    if (!email.trim()) {
+      mostrarMensaje('⚠️ Por favor ingresa tu email', 'warning');
+      return false;
+    }
+
+    if (!validarEmail(email)) {
+      mostrarMensaje('⚠️ Por favor ingresa un email válido', 'warning');
+      return false;
+    }
+
+    if (!CONTRACT_ADDRESS) {
+      mostrarMensaje('❌ Error: Dirección del contrato no configurada', 'error');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!wallet || !signer) {
-      setMessage('⚠️ Por favor conecta tu wallet primero');
-      return;
-    }
-
-    if (!CONTRACT_ADDRESS) {
-      setMessage('❌ Error: Dirección del contrato no configurada');
-      return;
-    }
+    
+    if (!validarFormulario()) return;
 
     setLoading(true);
-    setMessage('');
+    mostrarMensaje('⏳ Procesando registro...', 'info');
 
     try {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, signer);
       const tx = await contract.registrarUsuario(nombre, email);
-      setMessage('⏳ Transacción enviada, esperando confirmación...');
+      mostrarMensaje('⏳ Transacción enviada, esperando confirmación...', 'info');
       
       await tx.wait();
       
-      setMessage(`✅ Usuario registrado exitosamente! TX: ${tx.hash.substring(0, 10)}...`);
+      mostrarMensaje(`✅ Usuario registrado exitosamente! TX: ${tx.hash.substring(0, 10)}...`, 'success');
       setNombre('');
       setEmail('');
       
@@ -63,7 +94,7 @@ function RegistroUsuario({ onUsuarioRegistrado }) {
       }
     } catch (error) {
       console.error('Error al registrar usuario:', error);
-      setMessage('❌ Error: ' + (error.reason || error.message));
+      mostrarMensaje('❌ Error: ' + (error.reason || error.message), 'error');
     } finally {
       setLoading(false);
     }
@@ -94,23 +125,30 @@ function RegistroUsuario({ onUsuarioRegistrado }) {
       {wallet && (
         <div className="mb-6 p-4 bg-gradient-to-r from-green-400/20 to-emerald-400/20 backdrop-blur-sm border border-green-400/30 rounded-xl">
           <p className="text-sm text-green-200 font-medium mb-1">✅ Wallet conectada:</p>
-          <p className="text-sm font-mono text-green-300 break-all bg-black/20 p-2 rounded">{wallet}</p>
+          <p className="text-sm font-mono text-green-300 break-all bg-black/20 p-2 rounded">
+            {formatearWallet(wallet)}
+          </p>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label className="block text-sm font-semibold text-purple-200 mb-2">
-            Nombre
+            Nombre Completo
           </label>
           <input
             type="text"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
+            minLength="2"
+            maxLength="50"
             className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all"
-            placeholder="Ingresa tu nombre"
+            placeholder="Ingresa tu nombre completo"
           />
+          <p className="text-xs text-purple-300 mt-1">
+            {nombre.length}/50 caracteres
+          </p>
         </div>
 
         <div>
@@ -125,6 +163,11 @@ function RegistroUsuario({ onUsuarioRegistrado }) {
             className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all"
             placeholder="tu@email.com"
           />
+          {email && !validarEmail(email) && (
+            <p className="text-xs text-red-300 mt-1">
+              ⚠️ Por favor ingresa un email válido
+            </p>
+          )}
         </div>
 
         <button
@@ -137,13 +180,11 @@ function RegistroUsuario({ onUsuarioRegistrado }) {
       </form>
 
       {message && (
-        <div className={`mt-6 p-4 rounded-xl backdrop-blur-sm border ${
-          message.includes('Error') || message.includes('Por favor') || message.includes('❌') || message.includes('⚠️')
-            ? 'bg-red-500/20 text-red-200 border-red-400/30'
-            : 'bg-green-500/20 text-green-200 border-green-400/30'
-        }`}>
-          <p className="text-sm font-medium">{message}</p>
-        </div>
+        <Alert 
+          tipo={messageType} 
+          mensaje={message} 
+          onClose={() => setMessage('')}
+        />
       )}
     </div>
   );
