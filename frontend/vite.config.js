@@ -7,5 +7,5 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true
   },
-  base: '/Miniapp-On-Chain/',
+  base: './', // ✅ Usa base relativa
 })
