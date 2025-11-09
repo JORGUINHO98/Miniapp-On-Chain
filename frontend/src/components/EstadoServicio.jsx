@@ -38,7 +38,8 @@ function EstadoServicio({ onEstadoActualizado }) {
     }
 
     setLoadingServicio(true);
-    mostrarMensaje('🔍 Buscando servicio...', 'info');
+    // Se elimina la alerta "Buscando servicio..." ya que el spinner ya lo indica
+    // mostrarMensaje('🔍 Buscando servicio...', 'info'); 
 
     try {
       const response = await fetch(`${API_URL}/api/servicio/${servicioId}`);

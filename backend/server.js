@@ -23,7 +23,8 @@ app.use(express.json());
 // ===========================
 
 // Cargar ABI
-const abiPath = path.join(__dirname, 'abi.json');
+// NOTA: Asegúrate de que el archivo 'abi.json' esté en la carpeta 'upload'
+const abiPath = path.join(__dirname, 'upload', 'abi.json'); 
 const contractABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
 // Conectar a red y contrato
@@ -44,13 +45,20 @@ const ESTADOS = {
 // ===========================
 
 function formatearServicio(servicio) {
+  // Se asume que el contrato devuelve un objeto con campos nombrados
+  const id = servicio.id?.toString() ?? (servicio[0]?.toString() ?? '');
+  const creador = servicio.creador ?? (servicio[1] ?? '');
+  const descripcion = servicio.descripcion ?? (servicio[2] ?? '');
+  const fechaCreacion = servicio.fechaCreacion ?? (servicio[3] ?? 0);
+  const estado = servicio.estado ?? (servicio[4] ?? 0);
+
   return {
-    id: servicio.id?.toString() ?? '',
-    creador: servicio.creador ?? '',
-    descripcion: servicio.descripcion ?? '',
-    fechaCreacion: new Date(Number(servicio.fechaCreacion) * 1000).toISOString(),
-    estado: ESTADOS[servicio.estado] || 'Desconocido',
-    estadoNum: Number(servicio.estado)
+    id: id,
+    creador: creador,
+    descripcion: descripcion,
+    fechaCreacion: new Date(Number(fechaCreacion) * 1000).toISOString(),
+    estado: ESTADOS[Number(estado)] || 'Desconocido',
+    estadoNum: Number(estado)
   };
 }
 
@@ -66,6 +74,23 @@ function formatearUsuario(usuario) {
 // ===========================
 // 🛠️ RUTAS API
 // ===========================
+
+// 🏠 RUTA RAÍZ / HEALTH CHECK (CORRECCIÓN AÑADIDA)
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'Bienvenido a la API Miniapp-On-Chain. El servicio está activo y esperando peticiones API.',
+    endpoints: [
+        '/api/registrar (POST)',
+        '/api/crear-servicio (POST)',
+        '/api/actualizar-estado (POST)',
+        '/api/servicio/:id (GET)',
+        '/api/usuario/:wallet (GET)',
+        '/api/servicios (GET - OPTIMIZADO)',
+        '/api/health (GET)'
+    ]
+  });
+});
 
 // 🧍 Registrar usuario
 app.post('/api/registrar', async (req, res) => {
@@ -182,35 +207,33 @@ app.get('/api/usuario/:wallet', async (req, res) => {
   }
 });
 
-// 📋 Obtener todos los servicios
+// 📋 Obtener todos los servicios (¡OPTIMIZADO!)
 app.get('/api/servicios', async (req, res) => {
   try {
-    const contador = await contract.contadorServicios();
-    const total = Number(contador);
-    const servicios = [];
-
-    for (let i = 0; i < total; i++) {
-      try {
-        const servicio = await contract.obtenerServicio(i);
-        servicios.push(formatearServicio(servicio));
-      } catch (error) {
-        console.error(`⚠️ Error al obtener servicio ${i}:`, error.message);
-      }
-    }
+    // Se asume que el contrato inteligente tiene la función 'obtenerTodosLosServicios' 
+    // marcada como 'view' o 'pure' para una lectura masiva eficiente.
+    const serviciosRaw = await contract.obtenerTodosLosServicios(); 
+    
+    // Mapear y formatear los servicios obtenidos
+    const servicios = serviciosRaw.map(formatearServicio);
 
     res.json({ success: true, total: servicios.length, servicios });
   } catch (error) {
-    console.error('❌ Error al obtener servicios:', error);
-    res.status(500).json({ error: 'Error al obtener servicios', message: error.message });
+    console.error('❌ Error al obtener servicios (OPTIMIZADO):', error);
+    res.status(500).json({ 
+      error: 'Error al obtener servicios', 
+      message: error.message,
+      sugerencia: 'Asegúrate de que tu contrato inteligente tenga la función "obtenerTodosLosServicios" marcada como "view" o "pure" para lectura masiva.'
+    });
   }
 });
 
-// 🩺 Health Check
+// 🩺 Health Check (Ruta alternativa de salud)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend funcionando correctamente ✅' });
 });
 
-// 404 handler
+// 404 handler (Captura cualquier otra ruta no definida)
 app.use((req, res) => {
   res.status(404).send(`❌ Ruta no encontrada: ${req.originalUrl}`);
 });

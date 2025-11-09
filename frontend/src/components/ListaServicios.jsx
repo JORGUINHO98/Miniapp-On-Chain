@@ -34,11 +34,16 @@ function ListaServicios({ refreshTrigger }) {
         setServicios(data.servicios || []);
         setServiciosFiltrados(data.servicios || []);
       } else {
-        setError('❌ Error al cargar servicios: ' + (data.message || data.error));
+        // Manejo de error mejorado para mostrar la sugerencia de la API optimizada
+        let mensajeError = '❌ Error al cargar servicios: ' + (data.message || data.error);
+        if (data.sugerencia) {
+          mensajeError += `\n\nSugerencia: ${data.sugerencia}`;
+        }
+        setError(mensajeError);
       }
     } catch (error) {
       console.error('Error al cargar servicios:', error);
-      setError('❌ Error al cargar servicios: ' + error.message);
+      setError('❌ Error de conexión al cargar servicios: ' + error.message);
     } finally {
       setLoading(false);
     }
