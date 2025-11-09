@@ -23,10 +23,9 @@ app.use(express.json());
 // ===========================
 
 // Cargar ABI
-// NOTA: Asegúrate de que el archivo 'abi.json' esté en la carpeta 'upload'
-const abiPath = path.join(__dirname, 'upload', 'abi.json'); 
+// Ruta corregida: abi.json está directamente en la carpeta backend/ (que es __dirname)
+const abiPath = path.join(__dirname, 'abi.json'); 
 const contractABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
-
 // Conectar a red y contrato
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
