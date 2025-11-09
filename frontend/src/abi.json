@@ -1,5 +1,54 @@
 [
 	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_id",
+				"type": "uint256"
+			},
+			{
+				"internalType": "enum RegistroServicios.Estado",
+				"name": "_nuevoEstado",
+				"type": "uint8"
+			}
+		],
+		"name": "actualizarEstadoServicio",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_descripcion",
+				"type": "string"
+			}
+		],
+		"name": "crearServicio",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_nombre",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_email",
+				"type": "string"
+			}
+		],
+		"name": "registrarUsuario",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"inputs": [],
 		"stateMutability": "nonpayable",
 		"type": "constructor"
@@ -68,24 +117,6 @@
 		"type": "event"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_id",
-				"type": "uint256"
-			},
-			{
-				"internalType": "enum RegistroServicios.Estado",
-				"name": "_nuevoEstado",
-				"type": "uint8"
-			}
-		],
-		"name": "actualizarEstadoServicio",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
 		"inputs": [],
 		"name": "admin",
 		"outputs": [
@@ -109,19 +140,6 @@
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "_descripcion",
-				"type": "string"
-			}
-		],
-		"name": "crearServicio",
-		"outputs": [],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -171,6 +189,46 @@
 		"type": "function"
 	},
 	{
+		"inputs": [],
+		"name": "obtenerTodosLosServicios",
+		"outputs": [
+			{
+				"components": [
+					{
+						"internalType": "uint256",
+						"name": "id",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "creador",
+						"type": "address"
+					},
+					{
+						"internalType": "string",
+						"name": "descripcion",
+						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "fechaCreacion",
+						"type": "uint256"
+					},
+					{
+						"internalType": "enum RegistroServicios.Estado",
+						"name": "estado",
+						"type": "uint8"
+					}
+				],
+				"internalType": "struct RegistroServicios.Servicio[]",
+				"name": "",
+				"type": "tuple[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "address",
@@ -209,24 +267,6 @@
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "string",
-				"name": "_nombre",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "_email",
-				"type": "string"
-			}
-		],
-		"name": "registrarUsuario",
-		"outputs": [],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
